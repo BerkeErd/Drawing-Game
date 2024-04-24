@@ -4,13 +4,43 @@ using UnityEngine;
 using UnityEngine.UI;
 
 public class CanvasDrawer : MonoBehaviour
-{ 
-    public GameObject brushPrefab; 
-
-    private GameObject currentBrush; 
-    private LineRenderer currentLine; 
-    public GameObject stampPrefab;
+{
+    [SerializeField] private Camera mainCamera;
     
+    [SerializeField] private GameObject brushPrefab; 
+    private GameObject currentBrush;
+
+    
+
+    private LineRenderer currentLine;
+
+
+    [SerializeField] private GameObject paintballPrefab;
+    [SerializeField] private GameObject stampPrefab;
+    [SerializeField] private GameObject splashPrefab;
+
+    public static GameObject staticLinePrefab;
+    public static GameObject staticStampPrefab;
+    public static GameObject staticSplashPrefab;
+
+    public static List<LineRenderer> drawnLineRenderers = new List<LineRenderer>();
+    public static List<GameObject> stampObjects = new List<GameObject>();
+    public static List<GameObject> splashObjects = new List<GameObject>();
+    
+    [SerializeField] private FileManager fileManager;
+
+    [SerializeField] private SfxManager sfxManager;
+    
+
+
+    private void Start()
+    {
+        Application.targetFrameRate = 144;
+        staticLinePrefab = brushPrefab;
+        staticStampPrefab = stampPrefab;
+        staticSplashPrefab = splashPrefab;
+        fileManager.LoadCanvas();
+    }
 
     public void Draw()
     {
@@ -28,10 +58,10 @@ public class CanvasDrawer : MonoBehaviour
             case DrawingTool.Eraser:
                 Erase();
                 break;
+            case DrawingTool.PaintBall:
+                PaintBall();
+                break;
         }
-
-        
-
     }
 
     private void DrawPen()
@@ -44,22 +74,24 @@ public class CanvasDrawer : MonoBehaviour
         {
             if (currentLine != null)
             {
-                Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+                Vector2 mousePosition = mainCamera.ScreenToWorldPoint(Input.mousePosition);
                 currentLine.positionCount++;
                 currentLine.SetPosition(currentLine.positionCount - 1, mousePosition);
-                
+                sfxManager.PlaySound(SoundType.Pen);
             }
         }
         else if (Input.GetMouseButtonUp(0))
         {
             currentLine = null;
+            fileManager.SaveCanvas();
         }
     }
 
     private void CreateBrush()
     {
-        Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 mousePosition = mainCamera.ScreenToWorldPoint(Input.mousePosition);
         currentBrush = Instantiate(brushPrefab, mousePosition, Quaternion.identity);
+        drawnLineRenderers.Add(currentBrush.GetComponent<LineRenderer>());
         currentLine = currentBrush.GetComponent<LineRenderer>();
 
         if (currentLine != null)
@@ -67,35 +99,42 @@ public class CanvasDrawer : MonoBehaviour
             currentLine.positionCount = 1;
             currentLine.SetPosition(0, mousePosition);
             if (ToolManager.Instance.currentTool == DrawingTool.Eraser)
-                currentLine.startColor = currentLine.endColor = Camera.main.backgroundColor;
+                currentLine.startColor = currentLine.endColor = mainCamera.backgroundColor;
             else
-                currentLine.startColor = currentLine.endColor = ToolManager.Instance.currentColor;
+                currentLine.startColor = currentLine.endColor = ToolManager.Instance.CurrentColor;
         }
     }
     
     private void FillCanvas()
     {
         ClearCanvas();
-
-        GameObject canvasObject = GameObject.Find("Canvas");
-        if (canvasObject != null)
-        {
-            Camera canvasRenderer = canvasObject.GetComponent<Camera>();
-            if (canvasRenderer != null)
-            {
-                canvasRenderer.backgroundColor = ToolManager.Instance.currentColor;
-            }
-        }
+        GameObject.Find("Canvas").GetComponent<Camera>().backgroundColor  = ToolManager.Instance.CurrentColor;
+        ToolManager.Instance.CurrentBackgroundColor = ToolManager.Instance.CurrentColor;
+        sfxManager.PlaySound(SoundType.Bucket);
+        fileManager.SaveCanvas();
     }
 
     private void ClearCanvas()
     {
-        LineRenderer[] lineRenderers = FindObjectsOfType<LineRenderer>();
-        
-        foreach (LineRenderer lineRenderer in lineRenderers)
+        foreach (LineRenderer lineRenderer in drawnLineRenderers)
         {
             Destroy(lineRenderer.gameObject);
         }
+
+        foreach (GameObject stamp in stampObjects)
+        {
+            Destroy(stamp);
+        }
+
+        foreach (GameObject splash in splashObjects)
+        {
+            Destroy(splash);
+        }
+
+        drawnLineRenderers.Clear();
+        splashObjects.Clear();
+        stampObjects.Clear();
+        fileManager.SaveCanvas();
     }
 
     private void DrawStamp()
@@ -108,10 +147,64 @@ public class CanvasDrawer : MonoBehaviour
 
     private void PlaceStamp()
     {
+        Vector3 mousePosition = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        mousePosition.z = 1f; 
+        GameObject stampInstance = Instantiate(stampPrefab, mousePosition, Quaternion.identity);
+        sfxManager.PlaySound(SoundType.Stamp);
+        stampObjects.Add(stampInstance);
+        fileManager.SaveCanvas();
+    }
+
+    private void PaintBall()
+    {
+        if (Input.GetMouseButtonDown(0))
+        {
+            StartCoroutine(GeneratePaintball());
+        }
+    }
+
+
+    private IEnumerator GeneratePaintball()
+    {
+        Color ballColor = ToolManager.Instance.CurrentColor;
+        sfxManager.PlaySound(SoundType.PaintGun);
         Vector3 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
         mousePosition.z = 0f; 
-        GameObject stampInstance = Instantiate(stampPrefab, mousePosition, Quaternion.identity);
+        
+        GameObject paintball = Instantiate(paintballPrefab, mousePosition, Quaternion.identity);
+        paintball.GetComponent<SpriteRenderer>().color = ballColor;
+
+        yield return new WaitForEndOfFrame();
+        
+        Vector3 targetScale = Vector3.one * 0.1f;
+        
+        float duration = 1f; 
+        float elapsedTime = 0f;
+
+        while (elapsedTime < duration)
+        {
+            paintball.transform.localScale = Vector3.Lerp(Vector3.one, targetScale, elapsedTime / duration);
+            elapsedTime += Time.deltaTime;
+            yield return null; 
+        }
+        
+        paintball.transform.localScale = targetScale;
+        
+        Destroy(paintball);
+
+        mousePosition.z = 1f;
+        InstantiateSplash(mousePosition, ballColor);
     }
+
+    private void InstantiateSplash(Vector3 position, Color splashColor)
+    {
+        GameObject splashInstance = Instantiate(splashPrefab, position, Quaternion.identity);
+        sfxManager.PlaySound(SoundType.PaintballExplosion);
+        splashInstance.GetComponent<SpriteRenderer>().color = splashColor;
+        splashObjects.Add(splashInstance);
+        fileManager.SaveCanvas();
+    }
+
 
     private void Erase()
     {
@@ -123,14 +216,18 @@ public class CanvasDrawer : MonoBehaviour
         {
             if (currentLine != null)
             {
-                Vector2 mousePosition = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+                Vector2 mousePosition = mainCamera.ScreenToWorldPoint(Input.mousePosition);
                 currentLine.positionCount++;
                 currentLine.SetPosition(currentLine.positionCount - 1, mousePosition);
+
+                sfxManager.PlaySound(SoundType.Eraser);
+
             }
         }
         else if (Input.GetMouseButtonUp(0))
         {
             currentLine = null;
+            fileManager.SaveCanvas();
         }
     }
 

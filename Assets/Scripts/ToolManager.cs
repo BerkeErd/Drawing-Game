@@ -7,7 +7,8 @@ public enum DrawingTool
     Pen,
     Bucket,
     Stamp,
-    Eraser
+    Eraser,
+    PaintBall
 }
 
 public class ToolManager : MonoBehaviour
@@ -16,7 +17,21 @@ public class ToolManager : MonoBehaviour
     public static ToolManager Instance => instance;
 
     public DrawingTool currentTool;
-    public Color currentColor;
+
+    private Color currentColor = Color.black;
+    private Color currentBackgroundColor = Color.white; 
+
+    public Color CurrentColor
+    {
+        get { return currentColor; }
+        set { currentColor = value; }
+    }
+
+    public Color CurrentBackgroundColor
+    {
+        get { return currentBackgroundColor; }
+        set { currentBackgroundColor = value; }
+    }
 
     private void Awake()
     {
@@ -47,6 +62,9 @@ public class ToolManager : MonoBehaviour
             case 3:
                 currentTool = DrawingTool.Eraser;
                 break;
+            case 4:
+                currentTool = DrawingTool.PaintBall;
+                break;
             default:
                 break;
         }
@@ -55,6 +73,6 @@ public class ToolManager : MonoBehaviour
 
     public void SelectColor(Color color)
     {
-        currentColor = color;
+        CurrentColor = color;
     }
 }
