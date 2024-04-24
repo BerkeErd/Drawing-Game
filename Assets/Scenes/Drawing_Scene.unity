@@ -156,9 +156,6 @@ MonoBehaviour:
   penSound: {fileID: 8300000, guid: 5d8c1ad5458811343aaa2805840cc00f, type: 3}
   eraserSound: {fileID: 8300000, guid: 80b9681dcc473804d8e972de269687d9, type: 3}
   bucketSound: {fileID: 8300000, guid: df06dff575d4cd942886a98472f0b075, type: 3}
-  paintballExplosionSound: {fileID: 8300000, guid: 53a3ea43b26cfb242bb058133d33988a, type: 3}
-  stampSound: {fileID: 8300000, guid: a8bd57258f5e7734d9dfa5366e5f5820, type: 3}
-  paintGunSound: {fileID: 8300000, guid: 681314658cdeadf4a8d0429c51809c55, type: 3}
   audioSource: {fileID: 62030926}
 --- !u!4 &62030925
 Transform:
@@ -187,7 +184,7 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 0}
   m_audioClip: {fileID: 0}
   m_PlayOnAwake: 1
-  m_Volume: 1
+  m_Volume: 0.35
   m_Pitch: 1
   Loop: 0
   Mute: 0
