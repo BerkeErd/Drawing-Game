@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -30,8 +31,9 @@ public class CanvasDrawer : MonoBehaviour
     [SerializeField] private FileManager fileManager;
 
     [SerializeField] private SfxManager sfxManager;
-    
 
+    [SerializeField] private Camera screenShotCamera;
+    
 
     private void Start()
     {
@@ -231,6 +233,24 @@ public class CanvasDrawer : MonoBehaviour
         }
     }
 
+    public void ScreenShot()
+    {
+        RenderTexture screenShotTexture = new RenderTexture(Screen.width, Screen.height, 24, RenderTextureFormat.ARGB32);
+        screenShotCamera.targetTexture = screenShotTexture;
+        screenShotCamera.Render();
+        Texture2D myTexture2D = new Texture2D(Screen.width,Screen.height, TextureFormat.ARGB32, false);
+        RenderTexture.active = screenShotTexture;
+        myTexture2D.ReadPixels(new Rect(0, 0, screenShotTexture.width, screenShotTexture.height), 0, 0);
+        myTexture2D.Apply();
+
+        byte[] bytes = myTexture2D.EncodeToJPG();
+        var dirPath = Application.dataPath + "/../SaveImages/";
+        if (!Directory.Exists(dirPath))
+        {
+            Directory.CreateDirectory(dirPath);
+        }
+        File.WriteAllBytes(dirPath + "Image" + ".jpg", bytes);
+    }
 
 }
 
